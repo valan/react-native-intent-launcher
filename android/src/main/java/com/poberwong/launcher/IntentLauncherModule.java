@@ -5,6 +5,9 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.content.pm.PackageManager;
+import android.content.Context;
+import android.app.Fragment;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -40,22 +43,27 @@ public class IntentLauncherModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void startActivity(ReadableMap params){
-        Intent intent = new Intent();
-        if (params.hasKey(ATTR_DATA)) {
-            intent.setData(Uri.parse(params.getString(ATTR_DATA)));
+
+        PackageManager manager = getReactApplicationContext().getPackageManager();
+        try {
+            Intent i = manager.getLaunchIntentForPackage(params.getString(ATTR_DATA));
+            if (i == null) {
+                //return false;
+                throw new PackageManager.NameNotFoundException();
+            }
+            i.addCategory(Intent.CATEGORY_LAUNCHER);
+            getReactApplicationContext().startActivity(i);
+            //return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            try {
+                Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + params.getString(ATTR_DATA)));
+                i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getReactApplicationContext().startActivity(i);
+            } catch (android.content.ActivityNotFoundException anfe) {
+                Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=" + params.getString(ATTR_DATA)));
+                i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getReactApplicationContext().startActivity(i);
+            }
         }
-        if (params.hasKey(TAG_EXTRA)) {
-            intent.putExtras(Arguments.toBundle(params.getMap(TAG_EXTRA)));
-        }
-        if (params.hasKey(ATTR_FLAGS)) {
-            intent.addFlags(params.getInt(ATTR_FLAGS));
-        }
-        if (params.hasKey(ATTR_CATEGORY)) {
-            intent.addCategory(params.getString(ATTR_CATEGORY));
-        }
-        if (params.hasKey(ATTR_ACTION)) {
-            intent.setAction(params.getString(ATTR_ACTION));
-        }
-        getReactApplicationContext().startActivityForResult(intent, 0, null); // 暂时使用当前应用的任务栈
     }
 }
